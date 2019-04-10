@@ -1,11 +1,24 @@
 
+KEYS_NAMES = ['pictureLink','name', 'email','gender','age'];
+MIN_USERS_AT_START=10;
+
+
 $(document).ready(function () {
-    for (i=0;i<10;i++) {
+    loadFromLocalStorage();
+    for (i=localStorage.length;i<MIN_USERS_AT_START;i++) {
         getUser();
     }
     $("#getUser").click(getUser);
 
 });
+
+function loadFromLocalStorage(){
+    for (i=0; i< localStorage.length;i++){
+        var userId= localStorage.key(i);
+        var user = JSON.parse(localStorage.getItem(userId));
+        generateSimpleDivs('results', 'User', user, KEYS_NAMES);
+    }
+}
 
 function getUser() {
     getData("https://randomuser.me/api")
@@ -20,11 +33,21 @@ function getData(url) {
     $.ajax(ajaxParameters)
 }
 function handleResult(result, status, xhr) {
-    console.log("result: ", result);
-    console.log("status: ", status);
-    console.log("xhr: ", xhr);
-    keysNames = ['picture','name', 'email','gender','dob'];
-    generateSimpleDivs('results', 'User', result, keysNames);
+    var userData=result.results[0];
+    var userFullName='';
+    for (item in userData.name) {
+        userFullName += userData.name[item] + ' ' ;
+    }
+    var user = {
+        id : userData.login.uuid.replace(/\s*\W*/g, ''),
+        age : userData.dob.age,
+        email : userData.email,
+        name : userFullName,
+        gender:userData.gender,
+        pictureLink: userData.picture.thumbnail 
+    }
+    localStorage.setItem(user.id,JSON.stringify(user));
+    generateSimpleDivs('results', 'User', user, KEYS_NAMES);
 
 }
 
@@ -40,40 +63,78 @@ function changeToKeysNames(columnNames) {
 }
 
 
-function generateSimpleDivs(elementIdWhereToGenerateTheDiv, className, data, keysNames) {
-    var userData=data.results[0];
-    var userId=userData.login.uuid;
-    var divId=userId.replace(/\s*\W*/g, '') + className;
+function generateSimpleDivs(elementIdWhereToGenerateTheDiv, className, user, keysNames) {
+    var divId = user.id + className;
+    var localUser=user;
     $('#' + elementIdWhereToGenerateTheDiv).append('<div id=\'' + divId +'\' class=\'' + className + '\'></div>');
     let valueToPutIn='';
     keysNames.forEach(key => {
         switch(key) {
-            case 'name':
-                valueToPutIn += '<p>'+ key + ': ';
-                var userFullName='';
-                for (item in userData[key]) {
-                    userFullName += userData[key][item] + ' ' ;
-                }
-                valueToPutIn +=userFullName + '</p>';
-                break;
-            case 'dob':
-                valueToPutIn += '<p> age: ' + userData[key].age + '</p>';
-                break;
-            case 'picture':
-                valueToPutIn += '<img src=\"' +userData[key].thumbnail + '\">';
+            case 'pictureLink':
+                valueToPutIn += '<img src=\"' + user[key] + '\"><br>';
                 break;
             default:
-                valueToPutIn += '<p>'+ key + ': ' + userData[key] +'</p>';   
+                valueToPutIn += '<p>'+ key + ':';
+                valueToPutIn += '<span id=\''+key+divId+'\'>'+ user[key] +'</span>';
+                valueToPutIn += '</p>';
         }
     });
     valueToPutIn += '<button id=deleteButton' + divId + '> Delete </button>';
+    valueToPutIn += '<button id=editButton' + divId + '> Edit </button>';
+    valueToPutIn += '<button id=saveButton' + divId + ' class=\'saveButton\'> Save </button>';
+    valueToPutIn += '<button id=cancelButton' + divId + ' class=\'cancelButton\'> Cancel </button>';
     
-    valueToPutIn += '<button> Edit </button>';
     var toGenerate = '<div class=\'user-info\'>' + valueToPutIn + '</div>';
     $('#' + divId).append(toGenerate);
+    
     $("#deleteButton" + divId).click(function() {
-        
+        console.log(">>>>>>>>",localUser.id);
+        localStorage.removeItem(localUser.id);   
         $("#"+divId).remove();
-      });
+    });
+
+    $("#editButton" + divId).click(function() {
+        $("#deleteButton" + divId).hide();
+        $("#editButton" + divId).hide();
+        $("#saveButton"+divId).show();
+        $("#cancelButton"+divId).show();
+        var nameContent = $("#name"+divId).html();
+        var emailContent = $("#email"+divId).html();
+        $("#name"+divId).html('<textarea id=\'nameTextArea' +divId+'\'>' + nameContent + '</textarea>');
+        $("#email"+divId).html('<textarea id=\'emailTextArea' +divId+'\'>' + emailContent + '</textarea>');
+    });
+
+    $("#saveButton" + divId).click(function() {
+        var newName = $("#nameTextArea"+divId).val();
+        var newEmail = $("#emailTextArea"+divId).val();
+        
+        var userToChange = JSON.parse(localStorage.getItem(localUser.id))
+        userToChange.name=newName;
+        userToChange.email=newEmail;
+        localStorage.setItem(userToChange.id,JSON.stringify(userToChange));
+        $("#name"+divId).html(newName);
+        $("#email"+divId).html(newEmail);
+        backToMainButtons(divId);
+
+    });
+
+    $("#cancelButton" + divId).click(function() {
+        
+        var userToChange = JSON.parse(localStorage.getItem(localUser.id))
+        var oldName = userToChange.name
+        var oldEmail = userToChange.email
+        $("#name"+divId).html(oldName);
+        $("#email"+divId).html(oldEmail);
+        backToMainButtons(divId);
+
+    });
+
+    function backToMainButtons(divId){
+        $("#deleteButton" + divId).show();
+        $("#editButton" + divId).show();
+        $("#saveButton"+divId).hide();
+        $("#cancelButton"+divId).hide();
+    }
+
 }
 
